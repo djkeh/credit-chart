@@ -666,10 +666,6 @@ def main():
     save_html_with_extras(fig, info_html, OUTPUT_FILE)
 
     print(f"\n  차트 저장 완료: {OUTPUT_FILE}")
-    import webbrowser
-    webbrowser.open(f"file://{os.path.abspath(OUTPUT_FILE)}")
-    print("  브라우저에서 자동으로 열립니다.\n")
-
 
 if __name__ == "__main__":
     main()
