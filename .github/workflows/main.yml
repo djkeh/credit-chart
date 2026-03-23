@@ -47,7 +47,7 @@ jobs:
           publish_dir: .
           destination_dir: .
           publish_branch: gh-pages
-          exclude_assets: '.github, .gitignore, credit_chart.py, requirements.txt, README.md'
+          exclude_assets: '.github,.gitignore,credit_chart.py,requirements.txt,README.md,LICENSE'
           keep_files: false
           user_name: 'djkeh'
           user_email: 'djkeh@gmail.com'
