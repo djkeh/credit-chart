@@ -1,27 +1,3 @@
-"""
-신용거래융자 잔고 + 증권사 신용공여 한도 추이 차트
-=====================================================
-실행 방법:
-    pip install plotly requests pandas openpyxl
-    python credit_chart.py
-
-결과:
-    브라우저에서 credit_chart.html 자동 오픈
-
-데이터 출처:
-    - 신용거래융자 잔고   : 금융투자협회 FreeSIS (freesis.kofia.or.kr)
-                           엔드포인트: /meta/getMetaDataList.do
-                           서비스ID: STATSCU0100000070BO (TMPV2 필드, 백만원 단위)
-    - 증권사 자기자본     : 금융감독원 DART 전자공시 API (opendart.fss.or.kr)
-                           fnlttMultiAcnt.json 으로 10개사 동시 조회
-                           (기존 120회 → 12회로 감축)
-                           미설정 시 내장 fallback 추정치 자동 사용
-
-DART API 호출 횟수:
-    기존: 10개사 × 3년 × 4분기 = 120회 (fnlttSinglAcntAll, 회사별 개별 조회)
-    개선: 3년 × 4분기 = 12회 (fnlttMultiAcnt, 최대 100개사 동시 조회)
-"""
-
 import os
 import time
 import warnings
@@ -33,17 +9,13 @@ import plotly.graph_objects as go
 
 warnings.filterwarnings("ignore")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 설정
-# ══════════════════════════════════════════════════════════════════════════════
-
 # DART API 키 (https://opendart.fss.or.kr 에서 무료 발급)
 DART_API_KEY = os.environ.get("DART_API_KEY", "")
 
 # 차트 기간: 2024년 1월 1일 ~ 오늘
 START_DATE = "2024-01-01"
 
-# ── FreeSIS 설정 (브라우저 개발자도구로 검증된 실제 파라미터) ─────────────────
+# ── FreeSIS 설정 (브라우저 개발자도구로 확인한 실제 파라미터) ─────────────────
 FREESIS_DATA_URL = "http://freesis.kofia.or.kr/meta/getMetaDataList.do"
 FREESIS_PARAMS = {
     "OBJ_NM":  "STATSCU0100000070BO",
@@ -76,14 +48,10 @@ MAJOR_BROKERS = {
 LEGAL_CAP_RATIO   = 1.00   # 자본시장법: 종투사 자기자본 100%
 MGMT_CAP_RATIO    = 0.60   # 업계 자체 관리 관행: ~60%
 CREDIT_LOAN_SHARE = 0.50   # 신용공여 전체 한도 중 신용거래융자 배분 추정 비율
-                            # 근거: 2026-03-04 실제 한도 소진(잔고 32.8조) 역산
+                           # 근거: 2026-03-04 실제 한도 소진(잔고 32.8조) 역산
 
 OUTPUT_FILE = "index.html"
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 데이터 수집
-# ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_credit_balance(start_date: str, end_date: str) -> pd.DataFrame:
     """FreeSIS에서 신용거래융자 잔고를 수집합니다. (단위: 조원)"""
@@ -133,7 +101,6 @@ def fetch_credit_balance(start_date: str, end_date: str) -> pd.DataFrame:
     print(f"  [FreeSIS] {len(df)}개 영업일. "
           f"최신: {df['balance'].iloc[-1]:.2f}조원 ({df.index[-1].date()})")
     return df
-
 
 def fetch_dart_equity(api_key: str) -> pd.DataFrame:
     """
@@ -256,10 +223,6 @@ def _equity_fallback() -> pd.DataFrame:
             .rename("equity_sum").to_frame())
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 계산
-# ══════════════════════════════════════════════════════════════════════════════
-
 def equity_to_daily(equity_df: pd.DataFrame,
                     date_range: pd.DatetimeIndex) -> pd.DataFrame:
     """
@@ -282,7 +245,6 @@ def equity_to_daily(equity_df: pd.DataFrame,
     # date_range 전체로 reindex 후 ffill: 마지막 포인트 이후 수평 유지
     return eq.reindex(date_range).interpolate(method="time").ffill().bfill()
 
-
 def compute_cap_lines(equity_daily: pd.DataFrame) -> pd.DataFrame:
     caps = pd.DataFrame(index=equity_daily.index)
     caps["legal_cap"] = (equity_daily["equity_sum"]
@@ -291,14 +253,9 @@ def compute_cap_lines(equity_daily: pd.DataFrame) -> pd.DataFrame:
                          * MGMT_CAP_RATIO  * CREDIT_LOAN_SHARE)
     return caps
 
-
 def to_weekly(df: pd.DataFrame) -> pd.DataFrame:
     return df.resample("W-FRI").last().dropna(how="all")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# HTML 후처리: 정보 카드·경고 박스·안내 문구를 Plotly HTML에 주입
-# ══════════════════════════════════════════════════════════════════════════════
 
 def _build_info_html(latest_eq: float, eq_source: str,
                      latest_bal: float, peak_bal: float, peak_date: str,
@@ -382,7 +339,6 @@ def _build_info_html(latest_eq: float, eq_source: str,
 </div>
 """
 
-
 def save_html_with_extras(fig: go.Figure,
                            info_html: str,
                            output_file: str) -> None:
@@ -401,10 +357,6 @@ def save_html_with_extras(fig: go.Figure,
         f.write(final_html)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 차트 생성
-# ══════════════════════════════════════════════════════════════════════════════
-
 EVENTS = [
     ("2025-06-03", "이재명 정부 출범",                   +2.5, "#2d8a55"),
     ("2025-08-01", "세제개편안 충격",                     -2.5, "#ba7517"),
@@ -412,7 +364,6 @@ EVENTS = [
     ("2026-01-06", "잔고 27.8조 신고점",                 +2.5, "#185fa5"),
     ("2026-03-04", "대형 증권사<br>신규 대출 중단",       -3.0, "#a32d2d"),
 ]
-
 
 def build_chart(weekly_balance: pd.DataFrame,
                 weekly_caps: pd.DataFrame,
@@ -598,10 +549,6 @@ def build_chart(weekly_balance: pd.DataFrame,
 
     return fig
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 메인
-# ══════════════════════════════════════════════════════════════════════════════
 
 def main():
     today     = dt.date.today()
